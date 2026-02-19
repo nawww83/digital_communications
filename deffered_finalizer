@@ -1,0 +1,53 @@
+#ifndef DEFERRED_FINALIZER_HPP
+#define DEFERRED_FINALIZER_HPP
+
+#include <memory>
+#include <vector>
+#include <utility>
+
+/**
+ * @brief Паттерн "Deferred Finalization Pointer"
+ * 
+ * Позволяет объекту автоматически попадать в очередь финализации (кэш)
+ * после того, как последний внешний shared_ptr был уничтожен.
+ */
+namespace Utils {
+
+    template<typename T>
+    using FinalizationQueue = std::vector<std::shared_ptr<T>>;
+
+    /**
+     * @brief Создает объект, который при "смерти" перемещается в очередь финализации.
+     * 
+     * @param queue Ссылка на контейнер (кэш), куда объект попадет для финализации.
+     * @param args Аргументы конструктора типа T.
+     * @return std::shared_ptr<T> Управляющий указатель первого поколения.
+     */
+    template<typename T, typename... Args>
+    std::shared_ptr<T> make_deferred_finalizable(FinalizationQueue<T>& queue, Args&&... args) {
+        
+        // Создаем сырой указатель. delete будет вызван только во втором поколении.
+        T* raw_ptr = new T(std::forward<Args>(args)...);
+
+        // Делитель первого поколения: "Воскрешение"
+        auto resurrection_deleter = [&queue](T* p) {
+            if (!p) return;
+
+            // Создаем второе поколение владельца (Savior).
+            // Именно этот блок управления несет ответственность за финальный delete.
+            std::shared_ptr<T> savior(p, [](T* final_p) {
+                // Здесь происходит окончательное освобождение памяти
+                delete final_p;
+            });
+
+            // Перемещаем объект в очередь финализации (кэш)
+            queue.push_back(std::move(savior));
+        };
+
+        // Возвращаем shared_ptr с логикой перехвата удаления
+        return std::shared_ptr<T>(raw_ptr, resurrection_deleter);
+    }
+
+} // namespace Utils
+
+#endif // DEFERRED_FINALIZER_HPP
