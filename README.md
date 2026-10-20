@@ -34,7 +34,7 @@ jupyter notebook chapter_01.ipynb
 
 ### Через Google Colab
 
-Откройте ноутбук в Google Colab, загрузив его из репозитория или через GitHub-URL.
+Откройте ноутбук в [Google Colab](https://colab.research.google.com/), загрузив его из репозитория или через GitHub-URL.
 
 ## Содержание конспекта
 
